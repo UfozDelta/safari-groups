@@ -19,7 +19,9 @@
     }
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "scripts": ["background.js"],
+    "persistent": false
   },
   "permissions": ["tabs", "storage"],
   "host_permissions": ["<all_urls>"],
