@@ -158,3 +158,20 @@ li .close {
 }
 
 .empty { padding: 40px 12px; color: var(--muted); text-align: center; }
+
+.form { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 10px; }
+.form .row { display: flex; gap: 8px; }
+.form input, .form textarea {
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+.form .row input:last-child { flex: 1; }
+.form .icon-input { width: 52px; text-align: center; }
+.form button { align-self: flex-end; }
+.hint { margin: 0; color: var(--muted); font-size: 12px; }
+li .close:disabled { opacity: 0.35; }

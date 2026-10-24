@@ -92,7 +92,20 @@ function domainMatch(host, domain) {
   return host === domain || host.endsWith('.' + domain);
 }
 
-function categorize(tab, page) {
+// User rules: { name, icon, match } where `match` is comma/newline separated terms.
+// A tab matches if any term appears (case-insensitive) in its URL or title. First rule wins.
+function ruleTerms(rule) {
+  return (rule.match || '').split(/[,\n]/).map((t) => t.trim().toLowerCase()).filter(Boolean);
+}
+
+function applyRules(tab, rules) {
+  const hay = `${tab.url || ''}\n${tab.title || ''}`.toLowerCase();
+  return rules.find((r) => ruleTerms(r).some((t) => hay.includes(t))) ?? null;
+}
+
+function categorize(tab, page, rules = []) {
+  const custom = applyRules(tab, rules);
+  if (custom) return { name: custom.name, icon: custom.icon || '📌' };
   let url;
   try { url = new URL(tab.url); } catch { return OTHER; }
   const host = url.hostname.replace(/^www\./, '');
@@ -124,4 +137,4 @@ function categorize(tab, page) {
   return topScore >= 2 ? best : OTHER;
 }
 
-if (typeof module !== 'undefined') module.exports = { categorize, CATEGORIES, OTHER };
+if (typeof module !== 'undefined') module.exports = { categorize, applyRules, CATEGORIES, OTHER };

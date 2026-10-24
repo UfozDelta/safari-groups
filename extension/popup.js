@@ -4,7 +4,7 @@ const DAY = 86_400_000;
 const STALE = 'Stale (7d+)';
 const USAGE_ORDER = ['Today', 'This week', STALE, 'Not tracked yet'];
 
-const state = { tabs: [], saved: [], view: 'topic', query: '' };
+const state = { tabs: [], saved: [], rules: [], view: 'topic', query: '' };
 const $ = (sel) => document.querySelector(sel);
 
 const urlKey = (url) => (url || '').split('#')[0];
@@ -192,6 +192,68 @@ function renderOpenTabs(main, dupes) {
   }
 }
 
+async function persistRules() {
+  await api.storage.local.set({ rules: state.rules });
+  await load();
+}
+
+function renderRules(main) {
+  const name = el('input', { placeholder: 'Group name (e.g. GitHub)', autocomplete: 'off' });
+  const icon = el('input', { placeholder: '📌', maxLength: 4, className: 'icon-input', autocomplete: 'off' });
+  const match = el('textarea', {
+    placeholder: 'Match words, comma separated (e.g. github.com, gitlab.com)',
+    rows: 2,
+  });
+  const add = el('button', { className: 'plain', textContent: 'Add rule' });
+  add.onclick = async () => {
+    if (!name.value.trim() || !match.value.trim()) return;
+    state.rules.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: name.value.trim(),
+      icon: icon.value.trim(),
+      match: match.value.trim(),
+    });
+    await persistRules();
+  };
+
+  main.append(el('details', { open: true, className: 'rule-form' },
+    el('summary', {}, el('span', { className: 'name', textContent: 'New rule' })),
+    el('div', { className: 'form' },
+      el('div', { className: 'row' }, icon, name),
+      match,
+      el('p', { className: 'hint', textContent: 'Tabs whose URL or title contain any word go in this group. Rules beat the built-in topics; the top rule wins.' }),
+      add)));
+
+  if (state.rules.length === 0) {
+    main.append(el('p', { className: 'empty', textContent: 'No rules yet.' }));
+    return;
+  }
+
+  const list = el('ul', {});
+  state.rules.forEach((r, i) => {
+    const up = el('button', { className: 'close', textContent: '↑', ariaLabel: 'Move up' });
+    up.disabled = i === 0;
+    up.onclick = async () => {
+      [state.rules[i - 1], state.rules[i]] = [state.rules[i], state.rules[i - 1]];
+      await persistRules();
+    };
+    const del = el('button', { className: 'close', textContent: '×', ariaLabel: 'Delete rule' });
+    del.onclick = async () => {
+      state.rules = state.rules.filter((x) => x.id !== r.id);
+      await persistRules();
+    };
+    list.append(el('li', {},
+      el('span', { className: 'open' },
+        el('span', { className: 'title', textContent: `${r.icon || '📌'} ${r.name}` }),
+        el('span', { className: 'meta', textContent: r.match })),
+      up, del));
+  });
+  main.append(el('details', { open: true },
+    el('summary', {}, el('span', { className: 'name', textContent: 'Your rules' }),
+      el('span', { className: 'count', textContent: state.rules.length })),
+    list));
+}
+
 function renderSaved(main) {
   const groups = state.saved
     .map((g) => ({ g, items: g.tabs.map((t, i) => ({ ...t, i })).filter((t) => matchesQuery(t.title, t.url)) }))
@@ -238,6 +300,7 @@ function render() {
   $('#summary').textContent = `${state.tabs.length} tabs · ${stale.length} stale · ${dupes.size} dupes`;
   document.querySelectorAll('.seg button').forEach((b) => b.classList.toggle('active', b.dataset.view === state.view));
   $('#search').placeholder = state.view === 'saved' ? 'Search saved' : 'Search tabs';
+  $('#search').hidden = state.view === 'rules';
 
   const dupesBtn = $('#close-dupes');
   dupesBtn.hidden = dupes.size === 0;
@@ -254,18 +317,20 @@ function render() {
   const main = $('#groups');
   main.replaceChildren();
   if (state.view === 'saved') renderSaved(main);
+  else if (state.view === 'rules') renderRules(main);
   else renderOpenTabs(main, dupes);
 }
 
 async function load() {
   const [tabs, store] = await Promise.all([
     api.tabs.query({}),
-    api.storage.local.get(['usage', 'pages', 'view', 'saved']),
+    api.storage.local.get(['usage', 'pages', 'view', 'saved', 'rules']),
   ]);
   const usage = store.usage ?? {};
   const pages = store.pages ?? {};
   state.view = store.view ?? 'topic';
   state.saved = store.saved ?? [];
+  state.rules = store.rules ?? [];
 
   state.tabs = tabs.map((tab) => {
     const key = urlKey(tab.url);
@@ -281,7 +346,7 @@ async function load() {
       lastUsed,
       visits: u.visits ?? 0,
       usage: usageBucket(lastUsed),
-      topic: categorize(tab, pages[key]),
+      topic: categorize(tab, pages[key], state.rules),
     };
   });
   render();
