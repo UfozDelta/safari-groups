@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tab Sorter</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <div class="top">
+      <h1>Tab Sorter</h1>
+      <span id="summary"></span>
+    </div>
+    <div class="seg">
+      <button data-view="topic" class="active">By topic</button>
+      <button data-view="usage">By usage</button>
+      <button data-view="saved">Saved</button>
+    </div>
+    <input id="search" type="search" placeholder="Search tabs" autocomplete="off">
+    <div class="actions">
+      <button id="close-dupes" class="danger" hidden></button>
+      <button id="close-stale" class="danger" hidden></button>
+    </div>
+  </header>
+  <main id="groups"></main>
+  <script src="classify.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

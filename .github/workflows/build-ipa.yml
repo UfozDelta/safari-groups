@@ -1,0 +1,46 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Convert extension to Xcode project
+        run: |
+          xcrun safari-web-extension-converter extension \
+            --project-location build \
+            --app-name "TabSorter" \
+            --bundle-identifier dev.local.tabsorter \
+            --swift --ios-only --copy-resources \
+            --no-open --no-prompt --force
+
+      - name: Build unsigned app
+        run: |
+          PROJ=$(find build -maxdepth 3 -name '*.xcodeproj' | head -1)
+          SCHEME=$(xcodebuild -list -json -project "$PROJ" \
+            | python3 -c 'import json,sys; s=json.load(sys.stdin)["project"]["schemes"]; print(next(x for x in s if "Extension" not in x))')
+          echo "Project: $PROJ  Scheme: $SCHEME"
+          xcodebuild -project "$PROJ" -scheme "$SCHEME" \
+            -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath dd \
+            IPHONEOS_DEPLOYMENT_TARGET=16.0 \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package IPA
+        run: |
+          mkdir Payload
+          cp -R dd/Build/Products/Release-iphoneos/*.app Payload/
+          zip -qry TabSorter.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TabSorter-ipa
+          path: TabSorter.ipa
